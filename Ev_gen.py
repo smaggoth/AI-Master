@@ -1,24 +1,7 @@
-# Instalación de dependencias
-#!git clone https://github.com/NVlabs/stylegan3.git
-# %cd stylegan3
-
-#!pip install torch torchvision lpips transformers pillow numpy tqdm click ninja gradio
-#!pip install torchvision
-
-#import sys
-#sys.path.append('/content/stylegan3')
-
-# Descargar el modelo preentrenado
-#!wget https://api.ngc.nvidia.com/v2/models/nvidia/research/stylegan3/versions/1/files/stylegan3-r-afhqv2-512x512.pkl -O /content/model.pkl
-
-# Importaciones necesarias
 import os
-import re
-from typing import List, Optional
 from tqdm import tqdm
 import dnnlib
 import numpy as np
-import PIL.Image
 import torch
 import lpips
 from transformers import CLIPModel
@@ -26,15 +9,12 @@ import torchvision.transforms.functional as TF
 import torch.nn.functional as F
 import torchvision.transforms as T
 from PIL import Image
-#from google.colab import drive
 import legacy
 import gradio as gr
 import requests
 from io import BytesIO
-import tempfile
 
 # Configuración inicial
-#drive.mount('/content/drive')
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Using device: {device}')
 
@@ -86,7 +66,7 @@ def load_and_process_ref_images(ref_images):
 
     return ref_lpips_tensors, ref_clip_features
 
-# Función de evaluación de fitness
+# Función de evaluacion de fitness
 def evaluate_fitness(population_2D, generator, ref_lpips_tensors, ref_clip_features, alpha=0.5, beta=0.5):
     """Vectorized function to evaluate batch fitness from tensors"""
     with torch.no_grad():
@@ -133,7 +113,7 @@ def generate_img(w_optimized, generator, noise_mode):
         imagen = (best_image.permute(0, 2, 3, 1) * 127.5 + 128).clamp(0, 255).to(torch.uint8)
     return imagen[0].cpu().numpy()
 
-# Función de optimización adaptada para Gradio
+# Función de optimización
 def optimize_latent_space(
     network_pkl: str,
     truncation_psi: float = 1.0,
@@ -151,7 +131,6 @@ def optimize_latent_space(
 
     ndim = 8192                 # Dimensión del problema
     F_min, F_max = 0.1, 0.9     # Rango de F mutacion
-    #tau1, tau2 = 0.1, 0.3       # Probabilidad de cambiar F y CR
     bounds = (-3, 3)            # Límites de búsqueda
     F = np.random.uniform(F_min, F_max, size=poblacion)
     CR = np.random.uniform(0, 1, size=poblacion)
@@ -219,7 +198,7 @@ def optimize_latent_space(
         print("Optimización finalizada")
         print(f"Mejor fitness: {fitness.min():.5f}")
 
-    return best_vectors  # Siempre devolver todas las imágenes
+    return best_vectors
 
 # Función principal para Gradio con manejo de errores
 def generate_images_with_gradio(ref_images, truncation_psi, noise_mode, population_size, generations, tau1, tau2):
@@ -238,7 +217,7 @@ def generate_images_with_gradio(ref_images, truncation_psi, noise_mode, populati
         # Cargar modelo
         network_pkl = "stylegan2-ada-pytorch/models/afhqcat.pkl"
 
-        # Ejecutar optimización
+        # Optimizacion jDE
         progress(0.3, desc="Optimizando espacio latente...")
         w_optimized_list = optimize_latent_space(
             network_pkl=network_pkl,
@@ -254,7 +233,7 @@ def generate_images_with_gradio(ref_images, truncation_psi, noise_mode, populati
             ref_clip_features=ref_clip_features
         )
 
-        # Generar imágenes finales
+        # Generar 2 imágenes finales
         progress(0.8, desc="Generando imágenes finales...")
         with dnnlib.util.open_url(network_pkl) as f:
             G = legacy.load_network_pkl(f)['G_ema'].to(device)
@@ -265,7 +244,7 @@ def generate_images_with_gradio(ref_images, truncation_psi, noise_mode, populati
             generated_images.append(img)
 
         progress(1.0, desc="¡Imágenes generadas con éxito!")
-        return generated_images, "Generación completada con éxito ✅"  # Imágenes + mensaje
+        return generated_images, "Generación completada con éxito ✅" 
 
     except Exception as e:
         print(f"Error durante la generación: {str(e)}")
@@ -274,7 +253,7 @@ def generate_images_with_gradio(ref_images, truncation_psi, noise_mode, populati
             error_msg = "\n\nLimite de memoria alcanzado, prueba reducir el tamaño de población o generaciones."
         return None, error_msg
 
-# Crear interfaz Gradio mejorada # 🎨 StyleGAN3 Image Generator
+# Interfaz de gradio
 def create_interface():
     with gr.Blocks(theme=gr.themes.Soft()) as demo:
         gr.Markdown("""
@@ -324,7 +303,7 @@ def create_interface():
                     )
                 generate_btn = gr.Button("✨ Generar Imágenes", variant="primary")
 
-                # Sección de ejemplos con URLs
+                # URL de un ejemplo
                 with gr.Accordion("📸 Ejemplo para probar", open=True):
                     gr.Markdown("""
                     **URL de ejemplo:**
@@ -382,6 +361,5 @@ def safe_launch():
                 print("Reintentando...")
                 continue
 
-# Lanzar la interfaz
 if __name__ == "__main__":
     safe_launch()
